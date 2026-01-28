@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <title>Dual Map – Confronto Luoghi</title>
+
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+  </script>
+
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: sans-serif;
+    }
+
+    /* ===== LAYOUT ===== */
+    #container {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    .map-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    /* ===== SEPARATORE ===== */
+    #divider {
+      width: 8px;
+      background: linear-gradient(
+        to right,
+        #ddd,
+        #bbb,
+        #ddd
+      );
+      box-shadow: inset 0 0 4px rgba(0,0,0,0.3);
+      cursor: col-resize;
+    }
+
+    /* ===== CONTROLLI ===== */
+    .controls {
+      display: flex;
+      gap: 6px;
+      padding: 6px;
+      border-bottom: 1px solid #ccc;
+      background: #f7f7f7;
+    }
+
+    .controls input {
+      flex: 1;
+      padding: 6px;
+    }
+
+    .controls button {
+      padding: 6px 10px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    /* ===== MAPPA ===== */
+    .map {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .map.rotatable {
+      transform-origin: center center;
+      transition: transform 0.2s ease;
+    }
+
+    /* ===== CROCE ===== */
+    .crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 20px;
+      height: 20px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 500;
+    }
+
+    .crosshair::before,
+    .crosshair::after {
+      content: "";
+      position: absolute;
+      background: red;
+    }
+
+    .crosshair::before {
+      width: 20px;
+      height: 2px;
+      top: 9px;
+    }
+
+    .crosshair::after {
+      width: 2px;
+      height: 20px;
+      left: 9px;
+    }
+
+    /* ===== PANEL ===== */
+    #panelToggle {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      padding: 6px 10px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    #panel {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 300px;
+      height: 100%;
+      background: white;
+      border-right: 1px solid #ccc;
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+      z-index: 999;
+      overflow-y: auto;
+    }
+
+    #panel.open {
+      transform: translateX(0);
+    }
+
+    #panel h3 {
+      margin: 10px;
+    }
+
+    .pair {
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+    }
+
+    .pair:hover {
+      background: #f0f0f0;
+    }
+
+    .pair small {
+      display: block;
+      color: #666;
+      font-size: 12px;
+    }
+  </style>
+</head>
+
+<body>
+
+<button id="panelToggle">☰</button>
+
+<div id="panel">
+  <h3>Confronti predefiniti</h3>
+  <div id="pairs"></div>
+</div>
+
+<div id="container">
+
+  <!-- MAPPA SINISTRA -->
+  <div class="map-wrapper">
+    <div class="controls">
+      <input id="search1" placeholder="Cerca luogo…" />
+      <button id="rotL1">↺</button>
+      <button id="rotR1">↻</button>
+    </div>
+    <div id="map1" class="map">
+      <div class="crosshair"></div>
+    </div>
+  </div>
+
+  <!-- SEPARATORE -->
+  <div id="divider"></div>
+
+  <!-- MAPPA DESTRA -->
+  <div class="map-wrapper">
+    <div class="controls">
+      <input id="search2" placeholder="Cerca luogo…" />
+      <button id="rotL2">↺</button>
+      <button id="rotR2">↻</button>
+    </div>
+    <div id="map2" class="map">
+      <div class="crosshair"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ===== TILE ===== */
+function satelliteLayer() {
+  return L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { maxZoom: 19, attribution: '© Esri' }
+  );
+}
+
+/* ===== MAPPE ===== */
+const map1 = L.map('map1', { center: [45.4642, 9.19], zoom: 14, layers: [satelliteLayer()] });
+const map2 = L.map('map2', { center: [40.7128, -74.006], zoom: 14, layers: [satelliteLayer()] });
+
+L.control.scale({ metric: true, imperial: false }).addTo(map1);
+L.control.scale({ metric: true, imperial: false }).addTo(map2);
+
+/* ===== SYNC ZOOM ===== */
+let syncing = false;
+function setBothZoom(z) {
+  syncing = true;
+  map1.setZoom(z, { animate: false });
+  map2.setZoom(z, { animate: false });
+  syncing = false;
+}
+
+function syncZoom(a, b) {
+  a.on('zoomend', () => {
+    if (syncing) return;
+    syncing = true;
+    b.setZoom(a.getZoom(), { animate: false });
+    syncing = false;
+  });
+}
+syncZoom(map1, map2);
+syncZoom(map2, map1);
+
+/* ===== ROTAZIONE ===== */
+function setupRotation(mapId, l, r) {
+  const el = document.getElementById(mapId);
+  let angle = 0;
+  el.classList.add('rotatable');
+  document.getElementById(l).onclick = () => el.style.transform = `rotate(${angle -= 15}deg)`;
+  document.getElementById(r).onclick = () => el.style.transform = `rotate(${angle += 15}deg)`;
+}
+setupRotation('map1', 'rotL1', 'rotR1');
+setupRotation('map2', 'rotL2', 'rotR2');
+
+/* ===== COPPIE CON ZOOM ===== */
+const comparisons = [
+  {
+    label: 'Milano ↔ New York',
+    zoom: 14,
+    a: [45.4642, 9.19],
+    b: [40.7128, -74.006]
+  },
+  {
+    label: 'Roma ↔ Londra',
+    zoom: 13,
+    a: [41.9028, 12.4964],
+    b: [51.5074, -0.1278]
+  },
+  {
+    label: 'Vaticano ↔ Central Park',
+    zoom: 16,
+    a: [41.9029, 12.4534],
+    b: [40.7829, -73.9654]
+  },
+  {
+    label: 'Parigi ↔ Tokyo',
+    zoom: 12,
+    a: [48.8566, 2.3522],
+    b: [35.6895, 139.6917]
+  }
+];
+
+const list = document.getElementById('pairs');
+comparisons.forEach(c => {
+  const div = document.createElement('div');
+  div.className = 'pair';
+  div.innerHTML = `
+    <strong>${c.label}</strong>
+    <small>Zoom: ${c.zoom}</small>
+  `;
+  div.onclick = () => {
+    map1.setView(c.a, c.zoom);
+    map2.setView(c.b, c.zoom);
+  };
+  list.appendChild(div);
+});
+
+/* ===== PANEL ===== */
+const panel = document.getElementById('panel');
+document.getElementById('panelToggle').onclick = () => {
+  panel.classList.toggle('open');
+};
+</script>
+
+</body>
+</html>
