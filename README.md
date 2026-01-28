@@ -2,7 +2,10 @@
 
 **Dual Map Comparator** is a web-based interactive tool for visually comparing two geographical locations side by side using satellite imagery. It allows users to examine differences in scale, urban layout, and landscapes with precision and ease.
 
-## Demo
+## Demo / Try it Live
+
+You can try the application online here:  
+[https://adebiasi.github.io/dual-map-comparator/](https://adebiasi.github.io/dual-map-comparator/)
 
 ![Screenshot](screenshot.png)  
 *Two satellite views with synchronized zoom, independent rotation, and a predefined comparison panel.*
